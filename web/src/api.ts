@@ -1,7 +1,8 @@
-// API base is configurable so the same build points at localhost in dev and the
-// deployed FastAPI (behind cars.arthurnemeth.com) in prod.
-export const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8077";
+// In production the API is same-origin (Cloudflare Pages Functions serve /api/*),
+// so the base is "". In Vite dev we hit the local FastAPI. Override with
+// VITE_API_BASE if needed.
+const fallback = import.meta.env.DEV ? "http://localhost:8077" : "";
+export const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? fallback;
 
 export interface Stats {
   active_vehicles: number;

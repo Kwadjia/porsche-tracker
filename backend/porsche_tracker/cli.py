@@ -65,6 +65,30 @@ def collect(source: str = typer.Argument(..., help="source key or 'all'")) -> No
         )
 
 
+@app.command("purge-demo")
+def purge_demo() -> None:
+    """Remove all synthetic demo data (sources keyed `sample*`) and any vehicles
+    left orphaned. Run this once before real data starts flowing."""
+    from sqlalchemy import text
+
+    stmts = [
+        "delete from listing_observations where listing_id in "
+        "(select l.id from listings l join sources s on s.id=l.source_id where s.key like 'sample%')",
+        "delete from transactions where source_id in (select id from sources where key like 'sample%')",
+        "delete from listings where source_id in (select id from sources where key like 'sample%')",
+        "delete from vehicle_options where vehicle_id in "
+        "(select v.id from vehicles v left join listings l on l.vehicle_id=v.id where l.id is null)",
+        "delete from vehicles where id in "
+        "(select v.id from vehicles v left join listings l on l.vehicle_id=v.id where l.id is null)",
+        "delete from raw_ingestions where source_key like 'sample%'",
+        "delete from sources where key like 'sample%'",
+    ]
+    with session_scope() as session:
+        for stmt in stmts:
+            session.execute(text(stmt))
+    typer.echo("purged demo data")
+
+
 @app.command("enrich-vins")
 def enrich_vins(limit: int = typer.Option(200, help="max vehicles to decode this run")) -> None:
     """Decode VINs (NHTSA vPIC, free) for vehicles missing a decode; back-fills only
