@@ -1,0 +1,34 @@
+name: collect
+
+# Daily nationwide sweep of 981 Cayman S/GTS listings -> Neon Postgres.
+# Runs on GitHub's infra (free); free sources are APIs that don't care about IP.
+on:
+  schedule:
+    - cron: "17 9 * * *" # 09:17 UTC daily (stagger off the top of the hour)
+  workflow_dispatch: {} # manual trigger for testing
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+      EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+      EBAY_MARKETPLACE: EBAY_MOTORS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --extra dev
+      - name: Ensure schema (alembic upgrade head)
+        run: uv run porsche db-init
+      - name: Collect + ingest
+        run: uv run porsche collect all
+      - name: Enrich VINs (NHTSA vPIC)
+        run: uv run porsche enrich-vins
